@@ -1,10 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { ZodError } from "zod";
-import { authenticate, requireAdmin, adminClient } from "./auth";
-import { config } from "./config";
-import { ApiError, dbError } from "./errors";
-import {mapsController} from './services/geoapify/controller';
-import {operationSchema} from './validation/operations';
+import { authenticate, requireAdmin, adminClient } from "./auth.js";
+import { config } from "./config.js";
+import { ApiError, dbError } from "./errors.js";
+import {mapsController} from './services/geoapify/controller.js';
+import {operationSchema} from './validation/operations.js';
 import {
   deleteOrderSchema,
   deleteRouteSchema,
@@ -12,7 +12,7 @@ import {
   driverStatusSchema,
   orderSchema,
   routeSchema,
-} from "../shared/validation";
+} from "../shared/validation.js";
 
 type Request = IncomingMessage & { body?: unknown };
 export const MAX_BODY = 96 * 1024;

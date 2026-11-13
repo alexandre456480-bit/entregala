@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { adminClient, requireAdmin } from "../../auth";
-import { ApiError, dbError } from "../../errors";
-import type { Profile } from "../../../shared/models";
-import type { MapContext, MapResult } from "../../../shared/maps";
+import { adminClient, requireAdmin } from "../../auth.js";
+import { ApiError, dbError } from "../../errors.js";
+import type { Profile } from "../../../shared/models.js";
+import type { MapContext, MapResult } from "../../../shared/maps.js";
 import {
   baseSchema,
   locationSchema,
@@ -11,8 +11,8 @@ import {
   mapRequestSchema,
   reorderSchema,
   proposalSchema,
-} from "../../validation/maps";
-import { calculate, geocode, validateContext } from "./provider";
+} from "../../validation/maps.js";
+import { calculate, geocode, validateContext } from "./provider.js";
 async function rpc<T>(
   client: SupabaseClient,
   name: string,

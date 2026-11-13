@@ -1,11 +1,11 @@
 import { z } from "zod";
-import { ApiError } from "../../errors";
+import { ApiError } from "../../errors.js";
 import type {
   MapContext,
   RouteCalculation,
   GeocodeCandidate,
-} from "../../../shared/maps";
-import { lngLat, confirmed } from "../../../shared/maps";
+} from "../../../shared/maps.js";
+import { lngLat, confirmed } from "../../../shared/maps.js";
 const finite = z.number().finite().nonnegative();
 const point = z.tuple([
   z.number().min(-180).max(180),

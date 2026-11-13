@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import handler from "./handler";
+import handler from "./handler.js";
 createServer((req, res) => {
   void handler(req, res);
 }).listen(3001, "127.0.0.1", () =>

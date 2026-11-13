@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
-import { config } from "./config";
-import { ApiError } from "./errors";
-import type { Profile } from "../shared/models";
+import { config } from "./config.js";
+import { ApiError } from "./errors.js";
+import type { Profile } from "../shared/models.js";
 export async function authenticate(authorization?: string) {
   const match = /^Bearer ([A-Za-z0-9._-]+)$/.exec(authorization || "");
   if (!match)
