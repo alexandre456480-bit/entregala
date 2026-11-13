@@ -1,0 +1,257 @@
+@if(loading()){
+<div class="skeleton list-skeleton" aria-label="Carregando rota"></div>
+} @if(error()){
+<p class="error" role="alert">
+  {{error()}}
+  <button
+    type="button"
+    class="text-button"
+    [disabled]="busy()"
+    (click)="load()"
+  >
+    Atualizar rota
+  </button>
+</p>
+} @if(context();as c){
+<div class="map-workspace">
+  <div class="map-toolbar">
+    <div>
+      <strong>{{c.stops.length}} paradas</strong
+      ><small
+        >{{c.origin?'Saída: '+c.origin.name:'Base ainda não configurada'}} ·
+        término na última entrega</small
+      >
+    </div>
+    <div class="actions">
+      <button
+        type="button"
+        class="button secondary"
+        [disabled]="busy()||!canCalculate()||c.status==='completed'"
+        (click)="calculate()"
+      >
+        Calcular trajeto</button
+      ><button
+        type="button"
+        class="button primary"
+        [disabled]="busy()||!canOptimize()"
+        (click)="calculate(true)"
+      >
+        {{busy()?'Processando…':'Otimizar rota'}}
+      </button>
+    </div>
+  </div>
+  @if(!c.origin){
+  <p class="note">
+    A base precisa ser confirmada pelo administrador nas configurações antes de
+    calcular trajetos.
+  </p>
+  }@if(missing()){
+  <p class="note">
+    {{missing()}} entrega(s) sem localização confirmada. Os dados continuam na
+    lista; confirme os pontos antes de calcular.
+  </p>
+  }@if(c.stops.length>30){
+  <p class="note">
+    Cálculos limitados a 30 entregas por solicitação. Você pode continuar
+    organizando esta rota manualmente.
+  </p>
+  }
+  <div class="map-view-toggle">
+    <button
+      type="button"
+      [attr.aria-pressed]="view()==='map'"
+      (click)="view.set('map')"
+    >
+      Mapa completo</button
+    ><button
+      type="button"
+      [attr.aria-pressed]="view()==='list'"
+      (click)="view.set('list')"
+    >
+      Lista de entregas
+    </button>
+  </div>
+  @if(proposal();as p){
+  <section class="optimization-preview" aria-label="Prévia da otimização">
+    <div class="section-heading">
+      <div>
+        <span class="eyebrow">PROPOSTA · AINDA NÃO APLICADA</span>
+        <h2>Sua nova sequência está pronta</h2>
+      </div>
+      <app-icon name="route" />
+    </div>
+    <div class="comparison-grid">
+      <div>
+        <small>Rota atual</small
+        ><strong>{{c.stops.length}} paradas</strong>@if(current();as previous){
+        <p>
+          {{distance(previous.result.distance)}} ·
+          {{duration(previous.result.duration)}} de deslocamento
+        </p>
+        }@else{
+        <p>Trajeto atual ainda não calculado.</p>
+        }
+        <ol>
+          @for(s of c.stops;track s.order_id){
+          <li>{{s.name}}</li>
+          }
+        </ol>
+      </div>
+      <div>
+        <small>Rota sugerida</small
+        ><strong
+          >{{distance(p.result.distance)}} ·
+          {{duration(p.result.duration)}}</strong
+        >
+        <p>Estimativa de deslocamento, sem tempo de descarga.</p>
+        <ol>
+          @for(id of p.result.order_ids;track id;let i=$index){
+          <li [class.changed-stop]="c.stops[i]?.order_id!==id">
+            {{stop(id)?.name}}
+          </li>
+          }
+        </ol>
+      </div>
+    </div>
+    @if(current();as previous){
+    <p class="note">
+      Diferença estimada:
+      {{distance(previous.result.distance-p.result.distance)}} e
+      {{duration(previous.result.duration-p.result.duration)}}. Valores
+      negativos indicam aumento.
+    </p>
+    }@if(!p.result.geometry){
+    <p class="muted">
+      A proposta contém a sequência e estimativas. Calcule o trajeto após
+      aplicar para visualizar a geometria pelas ruas.
+    </p>
+    }
+    <div class="actions">
+      <button
+        class="button secondary"
+        type="button"
+        (click)="proposal.set(null)"
+      >
+        Manter minha rota</button
+      ><button
+        type="button"
+        class="button primary"
+        [disabled]="busy()"
+        (click)="apply()"
+      >
+        Aplicar rota otimizada
+      </button>
+    </div>
+  </section>
+  }
+  <div class="map-operating-grid" [class.list-view]="view()==='list'">
+    <div class="map-column">
+      <app-route-map
+        [points]="points()"
+        [framePoints]="framePoints()"
+        [lines]="lines()"
+        [selected]="selected()"
+        (selectedPoint)="select($event)"
+      />@if(!lines().length){
+      <p class="muted">
+        Exibindo pontos. Nenhuma linha reta representa um trajeto de navegação.
+      </p>
+      }@if(!manualDirty()&&current();as calc){
+      <div class="route-metrics">
+        <strong>{{distance(calc.result.distance)}}</strong
+        ><strong>{{duration(calc.result.duration)}}</strong
+        ><span
+          >Deslocamento estimado · sem trânsito ao vivo ou tempo de
+          descarga</span
+        >
+      </div>
+      }
+    </div>
+    <div class="map-stop-list">
+      <h3>Sequência {{proposal()?'sugerida':'da rota'}}</h3>
+      @for(id of displayIds();track id;let i=$index){
+      <article
+        class="map-stop"
+        [class.selected]="selected()===id"
+        [draggable]="!proposal()&&!busy()&&movable(id)"
+        (dragstart)="drag(i)"
+        (dragover)="$event.preventDefault()"
+        (drop)="!proposal()&&drop(i,$event)"
+      >
+        <span class="stop-number">{{i+1}}</span
+        ><button type="button" class="map-stop-select" (click)="select(id)">
+          <strong>{{stop(id)?.name}}</strong>@if(stop(id)?.status;as
+          status){<span class="badge">{{stopLabels[status]}}</span>}
+          <small>{{stop(id)?.address}}</small
+          >@if(stop(id)?.location_status!=='confirmed'){<span class="badge"
+            >Localização pendente</span
+          >}@if(!manualDirty()&&(proposal()||current())?.result?.legs?.[i];as
+          leg){<small
+            >{{distance(leg.distance)}} · {{duration(leg.duration)}} neste
+            trecho</small
+          >}</button
+        >@if(!proposal()){
+        <div class="stop-controls">
+          <button
+            type="button"
+            class="icon-button"
+            aria-label="Mover parada para cima"
+            [disabled]="i===0||busy()||!movable(id)||!movable(ids()[i-1])"
+            (click)="move(i,-1)"
+          >
+            <app-icon name="up" /></button
+          ><button
+            type="button"
+            class="icon-button"
+            aria-label="Mover parada para baixo"
+            [disabled]="i===ids().length-1||busy()||!movable(id)||!movable(ids()[i+1])"
+            (click)="move(i,1)"
+          >
+            <app-icon name="down" />
+          </button>
+        </div>
+        }
+      </article>
+      }@if(manualDirty()){
+      <div class="note">
+        Sequência alterada na prévia. Salve para persistir e depois recalcule o
+        percurso.
+      </div>
+      <button
+        class="button primary full"
+        type="button"
+        [disabled]="busy()"
+        (click)="saveManual()"
+      >
+        Salvar ordem das paradas</button
+      >}
+    </div>
+  </div>
+  @if(order();as o){
+  <section class="panel selected-delivery" aria-label="Entrega selecionada">
+    <span class="eyebrow">PARADA SELECIONADA</span>
+    <h3>{{o.establishments?.name}}</h3>
+    <p>{{o.establishments?.full_address}}</p>
+    <p>{{o.establishments?.notes}}</p>
+    @for(item of o.order_items;track item.id){
+    <div class="summary-line">
+      <span>{{item.name}} · {{item.quantity}} {{item.unit}}</span
+      >@if(item.unit_price!==null){<strong>{{item.unit_price|currency:'BRL'}}</strong>}
+    </div>
+    }
+    <p>{{o.notes}}</p>
+    @if(o.establishments;as e){<a
+      class="button primary"
+      [href]="navigate(e)"
+      target="_blank"
+      rel="noopener noreferrer"
+      >Navegar até o estabelecimento<app-icon name="arrow" /></a
+    >@if(e.location_status!=='confirmed'){
+    <p class="muted">
+      Navegação por endereço: o ponto ainda não foi confirmado.
+    </p>
+    }}
+  </section>
+  }
+</div>
+}

@@ -1,0 +1,134 @@
+<div class="page-heading">
+  <div>
+    <span class="eyebrow">VISÃO GERAL</span>
+    <h1>
+      Olá, {{auth.profile()?.name?.split(' ')?.[0]}}<span class="greeting-dot"
+        >.</span
+      >
+    </h1>
+    <p>Um novo dia para levar tudo ao lugar certo.</p>
+  </div>
+  <a class="button primary" routerLink="/admin/pedidos/novo"
+    ><app-icon name="plus" />Novo pedido</a
+  >
+</div>
+<section class="dashboard-hero">
+  <div>
+    <span class="hero-tag"><span></span> SUA OPERAÇÃO, MAIS LEVE</span>
+    <h2>Boas entregas começam<br />com <em>boa organização.</em></h2>
+    <p>
+      Pedidos no lugar. Equipe conectada.<br />Tudo pronto para o próximo
+      destino.
+    </p>
+    <a routerLink="/admin/rotas" class="button hero-button"
+      >Organizar minhas rotas<app-icon name="arrow"
+    /></a>
+  </div>
+  <img
+    src="/logistics.svg"
+    alt="Van de entregas e caixas ilustradas em três dimensões"
+  />
+</section>
+@if (error()) {
+<div class="error" role="alert">
+  {{error()}}
+  <button class="text-button" (click)="load()">Tentar novamente</button>
+</div>
+}
+<div class="section-heading">
+  <h2>O dia em números</h2>
+  <span class="muted"
+    ><span class="mini-dot"></span> Dados da operação de hoje</span
+  >
+</div>
+@if (busy()) {
+<div class="stats-grid" aria-label="Carregando indicadores">
+  @for (n of [1,2,3,4]; track n) {
+  <div class="stat-card skeleton"></div>
+  }
+</div>
+} @else if (!error()) {
+<div class="stats-grid">
+  <a routerLink="/admin/estabelecimentos" class="stat-card"
+    ><div class="stat-icon mint"><app-icon name="shop" /></div>
+    <span>Estabelecimentos</span><strong>{{stats().establishments}}</strong
+    ><small>Clientes cadastrados<app-icon name="arrow" /></small></a
+  ><a routerLink="/admin/pedidos" class="stat-card"
+    ><div class="stat-icon peach"><app-icon name="box" /></div>
+    <span>Pedidos para hoje</span><strong>{{stats().orders}}</strong
+    ><small
+      >{{stats().unassigned}} aguardando rota<app-icon
+        name="arrow" /></small></a
+  ><a routerLink="/admin/rotas" class="stat-card"
+    ><div class="stat-icon lilac"><app-icon name="route" /></div>
+    <span>Rotas planejadas</span><strong>{{stats().routes}}</strong
+    ><small>Organizadas para o dia<app-icon name="arrow" /></small></a
+  ><a routerLink="/admin/motoristas" class="stat-card"
+    ><div class="stat-icon sand"><app-icon name="users" /></div>
+    <span>Motoristas com rotas</span><strong>{{stats().drivers}}</strong
+    ><small>Equipe escalada hoje<app-icon name="arrow" /></small
+  ></a>
+</div>
+}
+<div class="dashboard-bottom">
+  <section class="panel">
+    <div class="section-heading">
+      <div>
+        <h2>Rotas de hoje</h2>
+        <p class="muted">Cada destino, no seu lugar.</p>
+      </div>
+      <a class="text-button" routerLink="/admin/rotas"
+        >Ver rotas<app-icon name="arrow"
+      /></a>
+    </div>
+    @if (!busy() && !error() && !routes().length) {
+    <app-empty
+      title="O dia ainda está tomando forma"
+      message="Organize os pedidos por motorista e prepare suas primeiras rotas."
+      icon="route"
+      ><a routerLink="/admin/rotas" class="button secondary"
+        >Planejar uma rota</a
+      ></app-empty
+    >
+    }@for (r of routes(); track r.id) {
+    <a class="route-summary" routerLink="/admin/rotas"
+      ><span class="avatar"><app-icon name="truck" /></span>
+      <div>
+        <strong>{{r.profiles?.name}}</strong
+        ><small>{{r.route_stops?.length || 0}} paradas</small>
+      </div>
+      <span class="badge" [class.released]="r.status === 'released'"
+        >{{r.status === 'draft' ? 'Rascunho' : 'Liberada'}}</span
+      ><app-icon name="chevron"
+    /></a>
+    }
+  </section>
+  <section class="panel quick-actions">
+    <span class="eyebrow">MENOS CLIQUES, MAIS AGILIDADE</span>
+    <h2>Por onde vamos começar?</h2>
+    <a routerLink="/admin/pedidos/novo"
+      ><span class="quick-icon peach"><app-icon name="box" /></span>
+      <div>
+        <strong>Cadastrar pedido</strong
+        ><small>Rápido, do jeito que o dia pede.</small>
+      </div>
+      <app-icon name="arrow" /></a
+    ><a routerLink="/admin/estabelecimentos" [queryParams]="{novo: 1}"
+      ><span class="quick-icon mint"><app-icon name="shop" /></span>
+      <div>
+        <strong>Novo estabelecimento</strong
+        ><small>Mais um cliente no seu caminho.</small>
+      </div>
+      <app-icon name="arrow" /></a
+    ><a routerLink="/admin/pedidos"
+      ><span class="quick-icon lilac"><app-icon name="calendar" /></span>
+      <div>
+        <strong>Pedidos de hoje</strong
+        ><small>Confira e organize suas entregas.</small>
+      </div>
+      <app-icon name="arrow"
+    /></a>
+  </section>
+</div>
+
+<app-operations-monitor [compact]="true" />

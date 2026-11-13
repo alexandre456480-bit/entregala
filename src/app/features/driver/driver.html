@@ -1,0 +1,223 @@
+<div class="driver-layout" [class.driver-collapsed]="collapsed()">
+  <aside class="driver-sidebar" [class.open]="menuOpen()" [attr.inert]="!menuOpen() && mobile() ? '' : null" [attr.role]="menuOpen() ? 'dialog' : null" [attr.aria-modal]="menuOpen() ? 'true' : null" [attr.aria-label]="menuOpen() ? 'Menu do entregador' : null">
+    <div class="driver-sidebar-heading"><span class="brand"><img src="/brand.svg" alt=""/><span class="driver-nav-label">Entrega<span class="brand-accent">Lá</span><i>•</i></span></span><button type="button" class="icon-button driver-menu-close" aria-label="Fechar menu" (click)="closeMenu()"><app-icon name="close"/></button></div>
+    <p class="driver-panel-label">Painel do Entregador</p>
+    <nav aria-label="Navegação do entregador">
+      <button [class.active]="tab()==='home'" title="Início" (click)="navigateTo('home')"><app-icon name="grid"/><span class="driver-nav-label">Início</span></button>
+      <button [class.active]="tab()==='product'||tab()==='establishment'" [attr.aria-expanded]="menuGroup() && (!collapsed() || mobile())" title="Pedidos" (click)="collapsed() && !mobile() ? toggleCollapsed() : menuGroup.set(!menuGroup())"><app-icon name="box"/><span class="driver-nav-label">Pedidos</span><app-icon class="driver-chevron" name="down"/></button>
+      @if(menuGroup()){<div class="driver-submenu"><button [class.active]="tab()==='product'" (click)="navigateTo('product')">Separação geral</button><button [class.active]="tab()==='establishment'" (click)="navigateTo('establishment')">Por estabelecimento</button></div>}
+      <button [class.active]="tab()==='routes'||tab()==='map'" title="Minhas rotas" (click)="navigateTo('routes')"><app-icon name="route"/><span class="driver-nav-label">Minhas rotas</span></button>
+    </nav>
+    <div class="driver-sidebar-footer"><button [class.active]="tab()==='account'" title="Minha conta" (click)="navigateTo('account')"><app-icon name="users"/><span class="driver-nav-label">Minha conta</span></button><button title="Sair da conta" (click)="logout()"><app-icon name="logout"/><span class="driver-nav-label">Sair da conta</span></button><button class="driver-collapse" [attr.aria-label]="collapsed()?'Expandir menu':'Recolher menu'" (click)="toggleCollapsed()"><app-icon name="chevron"/><span class="driver-nav-label">Recolher menu</span></button></div>
+  </aside>
+  @if(menuOpen()){<button class="driver-overlay" aria-label="Fechar menu" (click)="closeMenu()"></button>}
+<div class="driver-app">
+  <header class="driver-header">
+    <button class="icon-button driver-menu-open" aria-label="Abrir menu" [attr.aria-expanded]="menuOpen()" (click)="openMenu()"><app-icon name="menu"/></button>
+    <a href="/motorista" class="brand"
+      ><img src="/brand.svg" alt="" /><span
+        >Entrega<span class="brand-accent">Lá</span><i>•</i></span
+      ></a
+    ><button
+      class="icon-button"
+      aria-label="Sair da conta"
+      (click)="logout()"
+    >
+      <app-icon name="logout" />
+    </button>
+  </header>
+  <main class="driver-content">
+    @if(tab()==='account'){<app-account />}@else{
+    @if(tab()==='home'){<div class="driver-greeting">
+      <span class="eyebrow">SEU DIA, BEM ORGANIZADO</span>
+      <h1>
+        Olá, {{auth.profile()?.name?.split(' ')?.[0]}}<span class="greeting-dot"
+          >.</span
+        >
+      </h1>
+      <p>{{date.value|date:"EEEE, dd 'de' MMMM":'UTC'}}</p>
+    </div>
+    <section class="driver-hero">
+      <div>
+        <span>Seus próximos destinos</span>
+        <h2>{{busy()?'…':count()}} <small>entregas</small></h2>
+        <p>{{establishments()}} estabelecimentos no caminho</p>
+      </div>
+      <img src="/logistics.svg" alt="Van de entregas" />
+    </section>
+    <div class="driver-summary-grid"><div><strong>{{routes().length}}</strong><span>rotas atribuídas</span></div><div><strong>{{loadSummary().available ? loadSummary().complete+'/'+loadSummary().total : '—'}}</strong><span>itens separados</span></div><div><strong>{{delivered()}}</strong><span>entregas integrais</span></div><div><strong>{{remaining()}}</strong><span>paradas pendentes</span></div></div>
+    <div class="driver-quick-actions"><button class="button secondary" (click)="navigateTo('product')">Continuar separação</button><button class="button secondary" (click)="navigateTo('establishment')">Ver pedidos</button><button class="button secondary" (click)="navigateTo('routes')">Ver minha rota</button></div>
+    }
+    <div class="section-heading">
+      <h2>{{tab()==='product'?'Separação geral':tab()==='establishment'?'Pedidos por estabelecimento':'Minhas rotas'}}</h2>
+      <label class="sr-only" for="driver-date">Data das rotas</label
+      ><input
+        id="driver-date"
+        type="date"
+        [formControl]="date"
+        (change)="load()"
+      />
+    </div>
+    @if(error()){
+    <div class="error" role="alert">
+      {{error()}}<button class="text-button" (click)="load()">
+        Tentar novamente
+      </button>
+    </div>
+    }@if(busy()){
+    <div class="skeleton list-skeleton"></div>
+    }@else if(!routes().length&&!error()){
+    <section class="panel">
+      <app-empty
+        title="Tudo tranquilo por aqui"
+        message="Assim que o administrador liberar uma rota para você, suas entregas aparecerão aqui."
+        icon="route"
+      /><button class="button secondary full" (click)="load()">
+        Atualizar minhas rotas
+      </button>
+    </section>
+    }@for(r of routes();track r.id){
+    <section class="driver-route">
+      <button
+        type="button"
+        class="button primary full operation-primary-action"
+        (click)="operationRoute.set(operationRoute()===r.id?'':r.id)"
+      >
+        {{operationRoute()===r.id?'Fechar
+        operação':r.status==='completed'?'Consultar
+        jornada':r.status==='in_progress'?'Continuar entregas':'Conferir
+        carregamento'}}
+      </button>
+      @if(operationRoute()===r.id){<app-operation-workspace
+        [routeId]="r.id"
+        [requestedSection]="tab()==='product'?'product':tab()==='establishment'?(r.status==='in_progress'?'delivery':'establishment'):'default'"
+        (changed)="load()"
+      />} @if(operationRoute()!==r.id){
+      <button
+        type="button"
+        class="button secondary full"
+        (click)="mapRoute.set(mapRoute()===r.id?'':r.id)"
+      >
+        <app-icon name="pin" />{{mapRoute()===r.id?'Fechar mapa da rota':'Mapa e
+        organização da rota'}}
+      </button>
+      @if(mapRoute()===r.id){<app-route-workspace
+        [routeId]="r.id"
+        primaryColor="#39FF88"
+        (changed)="load()"
+      />}
+      <div class="section-heading">
+        <h3>Rota · {{r.route_date|date:'dd/MM':'UTC'}}</h3>
+        <span class="badge released"
+          ><app-icon name="check" />{{journeyLabels[r.status]}}</span
+        >
+      </div>
+      <p class="muted">{{r.route_stops?.length||0}} pedidos · {{routeStats(r).establishments}} estabelecimentos · {{routeStats(r).done}}/{{stops(r).length}} paradas atendidas</p>
+      @if(r.notes){
+      <p class="note">{{r.notes}}</p>
+      }@for(s of stops(r);track s.id){<button
+        class="delivery-card"
+        (click)="s.orders&&show(s.orders)"
+      >
+        <span class="stop-number">{{s.position}}</span>
+        <div>
+          <strong>{{s.orders?.establishments?.name}}</strong
+          ><span class="delivery-district"
+            >{{s.orders?.establishments?.district}} · {{stopLabels[s.status]}}</span
+          >
+          <p>{{s.orders?.establishments?.full_address}}</p>
+          <small
+            ><app-icon name="box" />{{s.orders?.order_items?.length}}
+            produtos<span>Ver detalhes <app-icon name="chevron" /></span
+          ></small>
+        </div></button
+      >} }
+    </section>
+    }}
+  </main>
+  <nav class="driver-nav" aria-label="Navegação do motorista" [style.--active-index]="navIndex()">
+    <span class="driver-nav-surface" aria-hidden="true"></span><span class="driver-nav-bubble" aria-hidden="true"></span>
+    <button [class.active]="tab()==='home'" [attr.aria-current]="tab()==='home'?'page':null" (click)="navigateTo('home')"><app-icon name="grid" /><span>Início</span></button>
+    <button [class.active]="tab()==='product'" [attr.aria-current]="tab()==='product'?'page':null" (click)="navigateTo('product')"><app-icon name="check" /><span>Carga</span></button>
+    <button [class.active]="tab()==='map'" [attr.aria-current]="tab()==='map'?'page':null" (click)="navigateTo('map')"><app-icon name="pin" /><span>Mapa</span></button>
+    <button [class.active]="tab()==='establishment'||tab()==='routes'" [attr.aria-current]="tab()==='establishment'||tab()==='routes'?'page':null" (click)="navigateTo('establishment')"><app-icon name="box" /><span>Entregas</span></button>
+    <button [class.active]="tab()==='account'" [attr.aria-current]="tab()==='account'?'page':null" (click)="navigateTo('account')"><app-icon name="users" /><span>Conta</span></button>
+  </nav>
+</div>
+</div>
+@if(detail();as o){
+<div class="modal-backdrop">
+  <section
+    class="modal delivery-detail"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="delivery-title"
+    (keydown.escape)="detail.set(null)"
+  >
+    <div class="modal-heading">
+      <span class="eyebrow">DETALHES DA ENTREGA</span
+      ><button
+        class="icon-button"
+        aria-label="Fechar detalhes"
+        (click)="detail.set(null)"
+      >
+        <app-icon name="close" />
+      </button>
+    </div>
+    <h2 id="delivery-title">{{o.establishments?.name}}</h2>
+    <p class="address-preview">
+      <app-icon name="pin" />{{o.establishments?.full_address}}
+    </p>
+    <div class="detail-facts">
+      <p>
+        <strong>Responsável</strong>{{o.establishments?.contact_name||'Não
+        informado'}}
+      </p>
+      <p><strong>Telefone</strong>{{o.establishments?.phone}}</p>
+      <p>
+        <strong>Recebimento</strong>{{o.establishments?.receiving_hours||'Não
+        informado'}}
+      </p>
+    </div>
+    @if(o.establishments?.notes){
+    <p class="note">{{o.establishments.notes}}</p>
+    }
+    <h3>Produtos do pedido</h3>
+    @for(item of o.order_items;track item.id){
+    <div class="delivery-item">
+      <div>
+        <strong>{{item.name}}</strong
+        ><small>{{item.notes}}</small>@if(item.unit_price!==null){<small
+          >{{item.unit_price|currency:'BRL'}} / {{item.unit}}</small
+        >}
+      </div>
+      <strong>{{item.quantity}} {{item.unit}}</strong>
+    </div>
+    }
+    <div class="order-total">
+      <span>Total informado</span><strong>{{o.total|currency:'BRL'}}</strong>
+    </div>
+    @if(o.notes){
+    <h3>Observações do pedido</h3>
+    <p class="note">{{o.notes}}</p>
+    }
+    <p class="read-only-note">
+      <app-icon name="lock" />Disponível para consulta nesta fase.
+    </p>
+    @if(o.establishments;as e){<a
+      class="button secondary full"
+      [href]="navigate(e)"
+      target="_blank"
+      rel="noopener noreferrer"
+      >Navegar até o estabelecimento<app-icon name="arrow" /></a
+    >@if(e.location_status!=='confirmed'){
+    <p class="muted">
+      Navegação pelo endereço informado; localização ainda não confirmada.
+    </p>
+    }}
+    <button class="button primary full" (click)="detail.set(null)">
+      Voltar às minhas entregas
+    </button>
+  </section>
+</div>
+}

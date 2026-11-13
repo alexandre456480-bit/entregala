@@ -1,0 +1,130 @@
+<section class="loading-checklist" aria-label="Lista geral de carregamento">
+  <div class="section-heading">
+    <div>
+      <span class="eyebrow">ANTES DE SAIR</span>
+      <h2>Conferência da carga</h2>
+    </div>
+    <app-load-illustration />
+  </div>
+  <div class="operation-load-summary">
+    <strong>{{stats().checked}} / {{stats().total}} linhas tratadas</strong
+    ><span
+      >{{stats().remaining}} restantes · {{stats().differences}}
+      divergências</span
+    ><progress
+      [value]="completionPercent()"
+      max="100"
+      aria-label="Conferência de carregamento"
+    ></progress
+    ><small>{{completionPercent()}}% integralmente separado</small>
+    <small>{{complete()}} de {{stats().total}} itens integralmente separados; divergências permanecem registradas.</small>
+  </div>
+  <div class="operation-filters">
+    <label
+      >Buscar estabelecimento ou produto<input
+        type="search"
+        [formControl]="search"
+        placeholder="Nome do cliente ou mercadoria" /></label
+    ><label
+      >Itens<select [formControl]="filter">
+        <option value="all">Todos</option>
+        <option value="pending">Não conferidos</option>
+        <option value="checked">Conferidos</option>
+        <option value="difference">Divergências</option>
+      </select></label
+    >
+  </div>
+  <div class="map-view-toggle">
+    <button
+      type="button"
+      [attr.aria-pressed]="mode()==='establishment'"
+      (click)="mode.set('establishment')"
+    >
+      Por estabelecimento</button
+    ><button
+      type="button"
+      [attr.aria-pressed]="mode()==='product'"
+      (click)="mode.set('product')"
+    >
+      Por produto
+    </button>
+  </div>
+  @if(mode()==='establishment'){@for(s of context().stops;track s.id){
+  <section class="operation-customer">
+    <div class="section-heading">
+      <div>
+        <h3>{{s.position}} · {{s.establishment.name}}</h3>
+        <small>{{s.establishment.full_address}}</small>
+        <small>Pedido {{s.order_id.slice(0,8)}} · {{s.items.length}} itens · {{completed(s.items)}}/{{s.items.length}} separados</small>
+        <progress [value]="completed(s.items)" [max]="s.items.length || 1" [attr.aria-label]="'Separação de '+s.establishment.name"></progress>
+      </div>
+    </div>
+    @if(s.order.notes){
+    <p class="note">{{s.order.notes}}</p>
+    }@for(i of s.items;track i.id){@if(match(i,s.establishment.name)){
+    <article class="operation-item" [class.has-difference]="difference(i)">
+      <button
+        type="button"
+        class="operation-check-button"
+        [disabled]="busy()"
+        [attr.aria-label]="(i.loaded===null?'Confirmar carregamento de ':'Desmarcar carregamento de ')+i.name+' para '+s.establishment.name"
+        [attr.aria-pressed]="i.loaded===null?'false':difference(i)?'mixed':'true'"
+        (click)="toggle(i)"
+      >
+        <span aria-hidden="true">{{i.loaded===null?'○':difference(i)?'◐':'✓'}}</span>
+      </button>
+      <div>
+        <strong>{{i.adjusted_name||i.name}}</strong>
+        <p>
+          Solicitado: {{i.requested}} {{i.unit}} · {{i.loaded===null?'A
+          conferir':'Carregado: '+i.loaded+' '+(i.adjusted_unit||i.unit)}}
+        </p>
+        @if(difference(i)){<p>Pendente: {{pending(i)}} {{i.unit}}</p>}
+        <small
+          >{{difference(i)?'⚠ Divergência registrada':i.loaded===null?'Não
+          conferido':'Conferido integralmente'}} {{i.notes}}</small
+        >@if(i.load_reason){
+        <p>{{i.load_reason}}</p>
+        }
+      </div>
+      <button
+        class="button secondary"
+        [disabled]="busy()"
+        (click)="edit.emit(i)"
+      >
+        Ajustar
+      </button>
+    </article>
+    }}
+  </section>
+  }} @else{@for(g of visibleGroups();track g.key){
+  <section class="operation-customer">
+    <details open><summary><strong>{{g.name}}</strong> <span class="badge">{{g.requested}} {{g.unit}}</span> · {{completed(g.items)}}/{{g.items.length}} completos</summary>
+    <p>
+      {{g.establishments.size}} estabelecimento(s) · {{g.loaded}} carregados
+    </p>
+    @for(i of g.items;track i.id){@if(match(i)){
+    <div class="operation-item" [class.has-difference]="difference(i)">
+      <button type="button" class="operation-check-button" [disabled]="busy()" [attr.aria-pressed]="i.loaded===null?'false':difference(i)?'mixed':'true'" [attr.aria-label]="(i.loaded===null?'Confirmar carregamento de ':'Desmarcar carregamento de ')+i.name+' para '+establishmentName(i)" (click)="toggle(i)"><span aria-hidden="true">{{i.loaded===null?'○':difference(i)?'◐':'✓'}}</span></button>
+      <div>
+        <strong>{{i.requested}} {{i.unit}}</strong
+        ><span> · {{establishmentName(i)}}</span><p>{{i.loaded===null?'A conferir':'Carregado: '+i.loaded+' '+i.unit}}{{difference(i)?' · Divergência':''}}</p>
+      </div>
+      <button
+        class="button secondary"
+        (click)="edit.emit(i)"
+        [disabled]="busy()"
+      >
+        Conferir item
+      </button>
+    </div>
+    }}<button
+      class="button primary"
+      [disabled]="busy()||!pendingIds(g.items).length"
+      (click)="group(pendingIds(g.items))"
+    >
+      Confirmar produto conferido
+    </button></details>
+  </section>
+  }}
+</section>

@@ -1,0 +1,63 @@
+﻿import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync, readdirSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { PGlite } from "@electric-sql/pglite";
+
+test("admin deletion respects assignments, history, concurrency and permissions", async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(`create role anon; create role authenticated; create role service_role bypassrls; create schema auth; create table auth.users(id uuid primary key); create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$; grant usage on schema auth,public to authenticated,anon,service_role; grant execute on function auth.uid() to authenticated,anon,service_role;`);
+    for (const f of readdirSync("supabase/migrations").filter(f=>f.endsWith(".sql")).sort()) await db.exec(readFileSync("supabase/migrations/"+f,"utf8"));
+    const admin=randomUUID(), driver=randomUUID();
+    await db.query(`insert into auth.users values($1),($2);`,[admin,driver]);
+    await db.query(`insert into public.profiles(id,name,email,role) values($1,'Admin','admin@test','admin'),($2,'Driver','driver@test','driver')`,[admin,driver]);
+    await db.query(`select set_config('request.jwt.claim.sub',$1,false)`,[admin]);
+    const one = async <T>(sql:string,args:unknown[]=[]) => (await db.query<{v:T}>(sql,args)).rows[0]?.v;
+    const est=await one<string>(`insert into public.establishments(name,phone,postal_code,street,number,district,city,state) values('Cliente','62999999999','74000000','Rua teste','10','Centro','Goiania','GO') returning id as v`);
+    const order = async () => {
+      const id=await one<string>(`insert into public.orders(establishment_id,delivery_date,created_by) values($1,'2026-11-11',$2) returning id as v`,[est,admin]);
+      await db.query(`insert into public.order_items(order_id,name,quantity,unit) values($1,'Produto',1,'un')`,[id]); return id;
+    };
+    const route = async (status='draft') => one<string>(`insert into public.routes(driver_id,route_date,status) values($1,'2026-11-11',$2) returning id as v`,[driver,status]);
+    const stamp = (table:string,id:string) => one<string>(`select updated_at::text as v from public.${table} where id=$1`,[id]);
+    const delOrder = (id:string,stampValue:string,routeId:string|null) => db.query(`select public.delete_order($1,$2,$3)`,[id,stampValue,routeId]);
+    const delRoute = (id:string,stampValue:string) => db.query(`select public.delete_route($1,$2)`,[id,stampValue]);
+    const a=await order(), b=await order(), c=await order(), draft=await route();
+    await db.query(`insert into public.route_stops(order_id,route_id,position) values($1,$4,1),($2,$4,2),($3,$4,3)`,[a,b,c,draft]);
+    const bs=await stamp('orders',b);
+    await db.exec('set role authenticated');
+    await db.query(`select set_config('request.jwt.claim.sub',$1,false)`,[driver]);
+    await assert.rejects(delOrder(b,bs,draft),/Administrator required/);
+    await assert.rejects(delRoute(draft,await stamp('routes',draft)),/Administrator required|permission denied/);
+    await db.query(`select set_config('request.jwt.claim.sub',$1,false)`,[admin]);
+    await assert.rejects(delOrder(b,bs,null),/assignment changed/);
+    await assert.rejects(delOrder(b,'2000-01-01T00:00:00Z',draft),/Stale order/);
+    await delOrder(b,bs,draft);
+    assert.deepEqual((await db.query(`select order_id,position from public.route_stops where route_id=$1 order by position`,[draft])).rows.map((r:any)=>[r.order_id,r.position]),[[a,1],[c,2]]);
+    assert.equal(await one<number>(`select count(*)::int as v from public.order_items where order_id=$1`,[b]),0);
+    await db.exec('reset role');
+    await db.query(`insert into private.map_requests(actor_id,route_id,kind,scope,credits,lease_until) values($1,$2,'routing','test',10,now()+interval '1 minute')`,[admin,draft]);
+    await db.exec('set role authenticated');
+    await assert.rejects(delRoute(draft,await stamp('routes',draft)),/Map request in progress/);
+    await db.exec('reset role');
+    await db.query(`update private.map_requests set lease_until=now() where route_id=$1`,[draft]);
+    await db.exec('set role authenticated');
+    await delRoute(draft,await stamp('routes',draft));
+    assert.equal(await one<number>(`select count(*)::int as v from public.orders where id in ($1,$2)`,[a,c]),2);
+    assert.equal(await one<number>(`select count(*)::int as v from public.route_stops where order_id in ($1,$2)`,[a,c]),0);
+    await db.exec('reset role');
+    assert.equal(await one<number>(`select count(*)::int as v from private.map_requests where route_id is null and credits=10`),1);
+    assert.equal(await one<number>(`select count(*)::int as v from public.audit_events where entity='orders' and entity_id=$1 and operation='DELETE'`,[b]),1);
+    const protectedOrder=await order(), released=await route('released'), active=await route('loading');
+    await db.query(`insert into public.route_stops(order_id,route_id,position) values($1,$2,1)`,[protectedOrder,released]);
+    await db.exec('set role authenticated');
+    await assert.rejects(delOrder(protectedOrder,await stamp('orders',protectedOrder),released),/protected route/);
+    await assert.rejects(delRoute(active,await stamp('routes',active)),/Journey has started/);
+    await delRoute(released,await stamp('routes',released));
+    await delOrder(protectedOrder,await stamp('orders',protectedOrder),null);
+    await db.exec('reset role');
+    await db.exec('set role anon');
+    await assert.rejects(delRoute(active,'2000-01-01T00:00:00Z'),/permission denied/);
+  } finally { await db.close(); }
+});

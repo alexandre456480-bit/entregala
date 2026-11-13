@@ -1,0 +1,39 @@
+<div class="admin-app" [class.nav-collapsed]="collapsed()" [class.menu-open]="open()">
+  <aside class="sidebar" [class.open]="open()" [attr.inert]="mobile() && !open() ? '' : null" [attr.role]="mobile() && open() ? 'dialog' : null" [attr.aria-modal]="mobile() && open() ? 'true' : null" [attr.aria-label]="mobile() && open() ? 'Menu de navegação' : null">
+    <div class="sidebar-header">
+      <a routerLink="/admin" class="brand" aria-label="EntregaLá, visão geral" (click)="closeMenu()"><img src="/brand.svg" alt="" /><span class="brand-name">Entrega<span class="brand-accent">Lá</span><i>•</i></span></a>
+      <button class="sidebar-close icon-button" aria-label="Fechar menu" (click)="closeMenu()"><app-icon name="close" /></button>
+    </div>
+    <nav class="sidebar-nav" aria-label="Principal">
+      <a class="nav-item" [routerLink]="overview.path" [class.selected]="active(overview)" [attr.aria-current]="active(overview)?'page':null" [title]="overview.label" (click)="closeMenu()"><app-icon [name]="overview.icon"/><span class="nav-label">{{overview.label}}</span></a>
+      @for(group of groups;track group.id){
+        <div class="nav-group" [class.group-active]="groupActive(group)" [class.group-open]="expanded()===group.id">
+          <button class="nav-item group-toggle" type="button" [attr.aria-expanded]="expanded()===group.id && (!collapsed() || mobile())" [attr.aria-controls]="'nav-'+group.id" [title]="group.label" (click)="toggleGroup(group)"><app-icon [name]="group.icon"/><span class="nav-label">{{group.label}}</span><app-icon class="group-chevron" name="down"/></button>
+          <div class="nav-submenu" [id]="'nav-'+group.id" [class.expanded]="expanded()===group.id && (!collapsed() || mobile())" [attr.inert]="expanded()!==group.id || (collapsed() && !mobile()) ? '' : null" [attr.aria-hidden]="expanded()!==group.id || (collapsed() && !mobile()) ? 'true' : null"><div>
+            @for(item of group.items;track item.path){<a [routerLink]="item.path" [class.selected]="active(item)" [attr.aria-current]="active(item)?'page':null" (click)="closeMenu()">{{item.label}}</a>}
+          </div></div>
+        </div>
+      }
+    </nav>
+    <div class="sidebar-bottom">
+      <a class="nav-item account-link" [routerLink]="account.path" [class.selected]="active(account)" [attr.aria-current]="active(account)?'page':null" title="Minha conta" (click)="closeMenu()"><span class="account-avatar">{{initials() || '•'}}</span><span class="nav-label">Minha conta</span></a>
+      <button class="nav-item logout-link" type="button" title="Sair da conta" (click)="auth.logout()"><app-icon name="logout"/><span class="nav-label">Sair da conta</span></button>
+      <button class="collapse-toggle" type="button" [attr.aria-label]="collapsed() ? 'Expandir menu' : 'Recolher menu'" [title]="collapsed() ? 'Expandir menu' : 'Recolher menu'" (click)="setCollapsed(!collapsed())"><app-icon name="chevron"/><span class="nav-label">Recolher menu</span></button>
+    </div>
+  </aside>
+  @if(open()){<button class="sidebar-overlay" aria-label="Fechar menu" (click)="closeMenu()"></button>}
+  <div class="admin-main">
+    <header class="topbar">
+      <div class="topbar-title"><button class="icon-button mobile-menu" aria-label="Abrir menu" [attr.aria-expanded]="open()" (click)="openMenu()"><app-icon name="menu"/></button>
+        <a class="mobile-brand brand" routerLink="/admin" aria-label="EntregaLá, visão geral"><img src="/brand.svg" alt=""/><span>Entrega<span class="brand-accent">Lá</span><i>•</i></span></a>
+        <span class="desktop-title">Organização que <strong>move o dia.</strong></span>
+      </div>
+      <div class="topbar-right"><span class="topbar-date"><app-icon name="calendar"/>{{nowLabel}}</span><div class="user-chip"><span class="avatar">{{initials()}}</span><div><strong>{{auth.profile()?.name}}</strong><small>Administrador</small></div></div></div>
+    </header>
+    <main class="content"><router-outlet/></main>
+    <footer class="app-footer">EntregaLá <span>Feito para simplificar sua operação.</span></footer>
+  </div>
+  <nav class="bottom-nav" aria-label="Navegação rápida">
+    @for(item of mobileItems;track item.path){<a [routerLink]="item.path" [class.selected]="active(item)" [attr.aria-current]="active(item)?'page':null"><app-icon [name]="item.icon"/><span>{{item.path==='/admin'?'Início':item.path==='/admin/rotas'?'Rotas':item.label}}</span></a>}
+  </nav>
+</div>

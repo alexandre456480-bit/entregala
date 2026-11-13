@@ -1,0 +1,223 @@
+<div class="page-heading">
+  <div>
+    <span class="eyebrow">SEUS CLIENTES</span>
+    <h1>Estabelecimentos<span class="greeting-dot">.</span></h1>
+    <p>Cadastre uma vez. Simplifique todas as próximas entregas.</p>
+  </div>
+  <button class="button primary" (click)="open(null)">
+    <app-icon name="plus" />Novo estabelecimento
+  </button>
+</div>
+<section class="panel">
+  <div class="toolbar">
+    <div class="search-field">
+      <app-icon name="search" /><input
+        aria-label="Pesquisar estabelecimento"
+        [formControl]="search"
+        placeholder="Buscar pelo nome do estabelecimento"
+      />
+    </div>
+    <select aria-label="Filtrar status" [formControl]="active">
+      <option value="all">Todos os status</option>
+      <option value="true">Ativos</option>
+      <option value="false">Inativos</option></select
+    ><span class="muted">{{count()}} cadastrados</span>
+  </div>
+  @if(error()){
+  <p class="error" role="alert">
+    {{error()}}
+    <button class="text-button" (click)="load()">Tentar novamente</button>
+  </p>
+  } @if(busy()){
+  <div
+    class="skeleton list-skeleton"
+    aria-label="Carregando estabelecimentos"
+  ></div>
+  }@else if(!error()&&!rows().length){<app-empty
+    title="Cada cliente tem seu lugar"
+    message="Cadastre seus estabelecimentos para criar pedidos sem repetir endereços."
+    icon="shop"
+  />}
+  <div class="record-list">
+    @for(row of rows();track row.id){
+    <article class="record-row">
+      <span class="record-icon mint"><app-icon name="shop" /></span
+      ><button class="record-info text-left" (click)="detail.set(row)">
+        <strong>{{row.name || 'Estabelecimento sem nome'}}</strong
+        ><small>{{row.district}}{{row.district && row.city ? ' · ' : ''}}{{row.city}}{{row.state ? (row.city ? '/' : '') + row.state : ''}}</small
+        ><small>{{row.street}}{{row.street && row.number ? ', ' : ''}}{{row.number}}</small></button
+      ><span class="badge" [class.released]="row.active"
+        >{{row.active?'Ativo':'Inativo'}}</span
+      >
+      <div class="row-actions">
+        <button
+          class="icon-button"
+          aria-label="Editar estabelecimento"
+          (click)="open(row)"
+        >
+          <app-icon name="edit" /></button
+        ><button class="text-button" (click)="toggle(row)">
+          {{row.active?'Desativar':'Reativar'}}
+        </button>
+      </div>
+    </article>
+    }
+  </div>
+  <div class="pagination">
+    <button
+      class="button secondary"
+      [disabled]="page()===0||busy()"
+      (click)="next(-1)"
+    >
+      Anterior</button
+    ><span>Página {{page()+1}}</span
+    ><button
+      class="button secondary"
+      [disabled]="(page()+1)*25>=count()||busy()"
+      (click)="next(1)"
+    >
+      Próxima
+    </button>
+  </div>
+</section>
+@if(editing()!==undefined){
+<div class="modal-backdrop">
+  <section
+    class="modal wide"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="est-title"
+    (keydown.escape)="!saving()&&editing.set(undefined)"
+  >
+    <div class="modal-heading">
+      <div>
+        <span class="eyebrow">CADASTRO PERMANENTE</span>
+        <h2 id="est-title">
+          {{editing()?'Editar estabelecimento':'Novo estabelecimento'}}
+        </h2>
+      </div>
+      <button
+        class="icon-button"
+        aria-label="Fechar"
+        [disabled]="saving()"
+        (click)="editing.set(undefined)"
+      >
+        <app-icon name="close" />
+      </button>
+    </div>
+    <form [formGroup]="form" (ngSubmit)="save()">
+      <h3>Quem recebe</h3>
+      <div class="form-grid">
+        <label class="span-2"
+          >Nome do estabelecimento<input
+            formControlName="name"
+            autocomplete="organization" /></label
+        ><label
+          >Telefone<input
+            formControlName="phone"
+            type="tel"
+            autocomplete="tel" /></label
+        ><label
+          >Responsável<input formControlName="contact_name" autocomplete="name"
+        /></label>
+      </div>
+      <h3>Endereço de entrega</h3>
+      <div class="form-grid">
+        <label
+          >CEP<input
+            formControlName="postal_code"
+            inputmode="numeric"
+            maxlength="8"
+            placeholder="Somente 8 dígitos"
+            autocomplete="postal-code" /></label
+        ><label
+          >Rua / avenida<input
+            formControlName="street"
+            autocomplete="address-line1" /></label
+        ><label>Número<input formControlName="number" /></label
+        ><label
+          >Complemento<input
+            formControlName="complement"
+            autocomplete="address-line2" /></label
+        ><label>Bairro<input formControlName="district" /></label
+        ><label
+          >Cidade<input
+            formControlName="city"
+            autocomplete="address-level2" /></label
+        ><label
+          >UF<input
+            formControlName="state"
+            maxlength="2"
+            autocomplete="address-level1"
+        /></label>
+      </div>
+      <app-location-editor
+        [address]="address()"
+        [initial]="location()"
+        [status]="editing()?.location_status||'unconfigured'"
+        (confirmedPoint)="confirmPoint($event)"
+      />
+      <h3>Facilite a entrega</h3>
+      <div class="form-grid">
+        <label
+          >Horário de recebimento<input
+            formControlName="receiving_hours"
+            placeholder="Ex.: segunda a sexta, 8h às 12h" /></label
+        ><label
+          >Observações<textarea
+            formControlName="notes"
+            placeholder="Referência, acesso ou cuidado especial"
+          ></textarea>
+        </label>
+      </div>
+      @if(formError()){
+      <p class="error" role="alert">{{formError()}}</p>
+      }
+      <div class="actions sticky-actions">
+        <button
+          class="button secondary"
+          type="button"
+          [disabled]="saving()"
+          (click)="editing.set(undefined)"
+        >
+          Cancelar</button
+        ><button class="button primary" [disabled]="saving()">
+          {{saving()?'Salvando…':'Salvar estabelecimento'}}
+        </button>
+      </div>
+    </form>
+  </section>
+</div>
+} @if(detail();as row){
+<div class="modal-backdrop">
+  <section
+    class="modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="detail-title"
+    (keydown.escape)="detail.set(null)"
+  >
+    <div class="modal-heading">
+      <h2 id="detail-title">{{row.name || 'Estabelecimento sem nome'}}</h2>
+      <button
+        class="icon-button"
+        aria-label="Fechar detalhes"
+        (click)="detail.set(null)"
+      >
+        <app-icon name="close" />
+      </button>
+    </div>
+    <p>{{row.trade_name}}</p>
+    <p>{{row.street || row.number || row.district || row.city || row.state || row.postal_code ? row.full_address : 'Endereço não informado'}}</p>
+    <p><strong>Telefone:</strong> {{row.phone}}</p>
+    <p><strong>Responsável:</strong> {{row.contact_name||'Não informado'}}</p>
+    <p>
+      <strong>Recebimento:</strong> {{row.receiving_hours||'Não informado'}}
+    </p>
+    <p class="note">{{row.notes||'Sem observações de entrega.'}}</p>
+    <button class="button secondary" (click)="detail.set(null);open(row)">
+      Editar cadastro
+    </button>
+  </section>
+</div>
+}

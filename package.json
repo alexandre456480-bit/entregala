@@ -1,0 +1,53 @@
+{
+  "name": "entregala",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.15.0 <25"
+  },
+  "scripts": {
+    "config": "node scripts/config.mjs",
+    "start": "npm run config && ng serve --host 127.0.0.1 --proxy-config proxy.conf.json",
+    "dev": "concurrently -k -n WEB,API \"npm start\" \"npm run dev:api\"",
+    "dev:api": "tsx watch server/dev.ts",
+    "build": "npm run config && ng build",
+    "typecheck": "tsc -p tsconfig.server.json --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "test:e2e": "playwright test",
+    "admin:provision": "tsx scripts/provision-admin.ts",
+    "db:new": "supabase migration new",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "verify:remote": "tsx scripts/verify-remote.ts"
+  },
+  "dependencies": {
+    "@angular/common": "22.2.5",
+    "@angular/compiler": "22.2.5",
+    "@angular/core": "22.2.5",
+    "@angular/forms": "22.2.5",
+    "@angular/platform-browser": "22.2.5",
+    "@angular/router": "22.2.5",
+    "@angular/service-worker": "22.2.5",
+    "@supabase/supabase-js": "2.119.0",
+    "dotenv": "17.2.3",
+    "maplibre-gl": "6.17.0",
+    "pg": "8.23.1",
+    "rxjs": "7.8.2",
+    "tslib": "2.8.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@angular/build": "22.2.6",
+    "@angular/cli": "22.2.6",
+    "@angular/compiler-cli": "22.2.5",
+    "@electric-sql/pglite": "0.5.16",
+    "@playwright/test": "1.65.0",
+    "@types/node": "24.10.1",
+    "@types/pg": "8.23.1",
+    "concurrently": "9.2.5",
+    "prettier": "3.10.0",
+    "supabase": "3.1.0",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3"
+  }
+}

@@ -1,0 +1,186 @@
+<div class="page-heading">
+  <div>
+    <a class="back-link" [routerLink]="routeId?'/admin/rotas':'/admin/pedidos'"
+      >← {{routeId?'Voltar à rota':'Todos os pedidos'}}</a
+    >
+    <h1>
+      {{order()?'Detalhes do pedido':'Vamos criar um pedido'}}<span
+        class="greeting-dot"
+        >.</span
+      >
+    </h1>
+    <p>
+      {{routeId?'O pedido será salvo e adicionado à rota em uma única
+      operação.':'Selecione o cliente, adicione os produtos e pronto.'}}
+    </p>
+  </div>
+  <span class="badge">{{routeId?'Cadastro na rota':'Cadastro rápido'}}</span>
+</div>
+@if(busy()){
+<div class="skeleton list-skeleton"></div>
+} @if(locked()){
+<p class="note">
+  <app-icon name="lock" />Este pedido pertence a uma rota liberada e está
+  disponível somente para consulta.
+</p>
+} @if(error()){
+<p class="error" role="alert">
+  {{error()}} @if(!loaded()){<button class="text-button" (click)="load()">
+    Tentar novamente</button
+  >}
+</p>
+} @if(loaded()){
+<form [formGroup]="form" (ngSubmit)="save()">
+  <section class="panel">
+    <div class="section-heading">
+      <h2><span class="step-number">1</span> Para quem e para quando?</h2>
+    </div>
+    <div class="form-grid">
+      <div>
+        <label
+          >Buscar estabelecimento<input
+            id="est-search"
+            type="search"
+            [formControl]="establishmentSearch"
+            placeholder="Nome ou bairro do cliente" /></label
+        ><label
+          >Estabelecimento *<select formControlName="establishment_id">
+            <option value="">Selecione um cliente</option>
+            @for(e of filteredEstablishments();track e.id){
+            <option [value]="e.id">{{e.name || 'Estabelecimento sem nome'}}{{e.district ? ' · ' + e.district : ''}}</option>
+            }
+          </select></label
+        >@if(selected();as e){
+        <p class="address-preview"><app-icon name="pin" />{{e.full_address}}</p>
+        }<a
+          routerLink="/admin/estabelecimentos"
+          [queryParams]="{novo:1}"
+          class="text-button"
+          >Cadastrar estabelecimento</a
+        >
+      </div>
+      <div>
+        <label
+          >Data prevista da entrega *<input
+            type="date"
+            formControlName="delivery_date" /></label
+        >@if(order()){<label
+          >Situação administrativa<select formControlName="status">
+            <option value="open">Aberto</option>
+            <option value="cancelled">Cancelado</option>
+          </select></label
+        >}
+      </div>
+    </div>
+  </section>
+  <section class="panel item-panel">
+    <div class="section-heading">
+      <div>
+        <h2><span class="step-number">2</span> O que vamos entregar?</h2>
+        <p class="muted">
+          Selecione os produtos por categoria ou adicione um produto avulso.
+        </p>
+      </div>
+      <span class="badge">{{items.length}} itens</span>
+    </div>
+    <div class="product-picker">
+      <label>Buscar produto<input type="search" [formControl]="productSearch" placeholder="Digite o nome do produto" /></label>
+      <div class="picker-categories">@for(group of groupedProducts();track group.category.id){<details [open]="!!productSearch.value"><summary>{{group.category.name}} <span class="muted">{{group.products.length}}</span></summary><div class="picker-products">@for(product of group.products;track product.id){<button type="button" class="button secondary" [disabled]="locked()" (click)="selectProduct(product)"><app-icon name="plus" />{{product.name}}</button>} @empty{<small class="muted">Nenhum produto ativo nesta categoria.</small>}</div></details>} @empty {<p class="muted">Nenhum produto encontrado.</p>}</div>
+    </div>
+    <datalist id="catalog">
+      @for(p of products();track p.id){@if(p.active){
+      <option [value]="p.name">{{p.unit}}</option>
+      }}</datalist
+    >
+    <div class="item-table" formArrayName="items">
+      @for(item of items.controls;track item;let i=$index){
+      <div class="item-editor" [formGroupName]="i">
+        <span class="item-index">{{i+1}}</span
+        ><label class="product-input"
+          >Produto *<input
+            formControlName="name"
+            list="catalog"
+            placeholder="Ex.: Tomate"
+            (change)="productChanged(i)" /><input
+            class="item-note"
+            formControlName="notes"
+            aria-label="Observação do item"
+            placeholder="Observação do item (opcional)" /></label
+        ><label
+          >Quantidade *<input
+            type="number"
+            formControlName="quantity"
+            min="0.001"
+            max="999999"
+            step="0.001"
+            inputmode="decimal" /></label
+        ><label
+          >Unidade *<select formControlName="unit"><option value="">Selecione</option>@if(item.controls.unit.value && !hasUnit(item.controls.unit.value)){<option [value]="item.controls.unit.value">{{item.controls.unit.value}} (histórica)</option>}@for(unit of units();track unit.id){<option [value]="unit.abbreviation">{{unit.name}} ({{unit.abbreviation}})</option>}</select></label
+        ><label
+          >Preço unit. (R$)<input
+            type="number"
+            formControlName="unit_price"
+            min="0"
+            step="0.01"
+            placeholder="Opcional"
+            inputmode="decimal"
+        /></label>
+        <div class="item-subtotal">
+          <small>Subtotal</small
+          ><strong>{{lineTotal(i)|currency:'BRL'}}</strong>
+        </div>
+        <button
+          class="icon-button"
+          type="button"
+          [disabled]="items.length===1||locked()"
+          aria-label="Remover item"
+          (click)="items.removeAt(i)"
+        >
+          <app-icon name="close" />
+        </button>
+      </div>
+      }
+    </div>
+    <button
+      class="button secondary"
+      type="button"
+      [disabled]="locked()||items.length>=100"
+      (click)="addItem()"
+    >
+      <app-icon name="plus" />Adicionar produto
+    </button>
+    <div class="order-total">
+      <div>
+        <strong>Valor total do pedido</strong
+        ><small>Itens sem preço informado são considerados R$ 0,00.</small>
+      </div>
+      <strong>{{total()|currency:'BRL'}}</strong>
+    </div>
+  </section>
+  <section class="panel">
+    <label
+      >Alguma observação para este pedido?<textarea
+        formControlName="notes"
+        placeholder="Orientações que ajudam a entrega a acontecer melhor."
+      ></textarea>
+    </label>
+  </section>
+  @if(!locked()){
+  <div class="editor-footer">
+    <a class="button secondary" routerLink="/admin/pedidos">Voltar</a>
+    <div class="actions">
+      <button
+        type="button"
+        class="button secondary"
+        [disabled]="saving()"
+        (click)="save(true)"
+      >
+        Salvar e cadastrar outro</button
+      ><button class="button primary" [disabled]="saving()">
+        {{saving()?'Salvando…':'Salvar pedido'}}<app-icon name="check" />
+      </button>
+    </div>
+  </div>
+  }
+</form>
+}

@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.angular/
+.vercel/
+.env
+.env.*
+!.env.example
+Info.txt
+src/environments/generated.ts
+test-results/
+playwright-report/
+artifacts/
+supabase/.temp/
+*.log

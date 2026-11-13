@@ -1,0 +1,219 @@
+<app-route-tabs active="planning" [date]="date.value" [route]="selected()?.id" />
+<div class="page-heading">
+  <div>
+    <span class="eyebrow">CADA PEDIDO, NO CAMINHO CERTO</span>
+    <h1>Organizar rotas<span class="greeting-dot">.</span></h1>
+    <p>Distribua os pedidos e defina a sequência. Sem complicação.</p>
+  </div>
+  <button class="button primary" [disabled]="busy()" (click)="choose(null)">
+    <app-icon name="plus" />Nova rota
+  </button>
+</div>
+<div class="toolbar">
+  <label class="inline-label"
+    >Dia do planejamento<input
+      type="date"
+      [formControl]="date"
+      (change)="changeDate()" /></label
+  ><span class="badge">{{routes().length}} rotas</span
+  ><span class="badge peach">{{available().length}} pedidos sem rota</span>
+</div>
+@if(error()){
+<p class="error" role="alert">
+  {{error()}}
+  <button class="text-button" (click)="load()">Tentar novamente</button>
+</p>
+}@if(busy()){
+<div class="skeleton list-skeleton"></div>
+}@else{
+<div class="planner-layout">
+  <aside class="panel route-picker">
+    <h2>Equipe do dia</h2>
+    @for(r of routes();track r.id){<button
+      class="route-choice"
+      [class.selected]="selected()?.id===r.id"
+      (click)="choose(r)"
+    >
+      <span class="avatar"><app-icon name="truck" /></span>
+      <div>
+        <strong>{{r.profiles?.name}}</strong
+        ><small
+          >{{r.route_stops?.length||0}} paradas ·
+          {{journeyLabels[r.status]}}</small
+        >
+      </div>
+      <app-icon name="chevron" /></button
+    >}@if(!routes().length){<app-empty
+      title="O próximo destino começa aqui"
+      message="Crie uma rota e selecione o motorista."
+      icon="route"
+    />}
+    <div class="available-orders">
+      <h3>Pedidos sem rota <span>{{available().length}}</span></h3>
+      <p class="muted">
+        Selecione uma rota em rascunho para distribuir os pedidos.
+      </p>
+      @for(o of available();track o.id){
+      <div class="available-order">
+        <div>
+          <strong>{{o.establishments?.name}}</strong
+          ><small
+            >{{o.establishments?.district}} · {{o.order_items?.length}}
+            produtos</small
+          >
+        </div>
+        <button
+          class="icon-button"
+          aria-label="Adicionar pedido à rota"
+          [disabled]="selected()===undefined||planningLocked()||stops().length>=200"
+          (click)="add(o.id)"
+        >
+          <app-icon name="plus" />
+        </button>
+      </div>
+      }@if(!available().length){
+      <p class="muted">Nenhum pedido aguardando atribuição.</p>
+      }
+    </div>
+  </aside>
+  <section class="panel route-editor">
+    @if(selected()===undefined){<app-empty
+      title="Vamos organizar o caminho?"
+      message="Selecione uma rota para consultar ou crie uma nova para distribuir os pedidos."
+      icon="route"
+      ><button class="button primary" (click)="choose(null)">
+        Criar primeira rota
+      </button></app-empty
+    >}@else{
+    <form [formGroup]="form" (ngSubmit)="save()">
+      <div class="section-heading">
+        <h2>{{selected()?'Planejamento da rota':'Nova rota'}}</h2>
+        <span class="badge" [class.released]="planningLocked()"
+          >{{selected()?journeyLabels[selected()!.status]:'Rascunho'}}</span
+        >
+      </div>
+      @if(selected() && (selected()!.status === 'draft' || selected()!.status === 'released')) {
+      <button type="button" class="text-button" [disabled]="saving()" (click)="deleteRoute()">Excluir rota</button>
+      }
+      <label
+        >Motorista responsável *<select
+          formControlName="driver_id"
+          [attr.disabled]="planningLocked()?'':null"
+        >
+          <option value="">Selecione o motorista</option>
+          @for(d of drivers();track
+          d.id){@if(d.active||selected()?.driver_id===d.id){
+          <option [value]="d.id" [disabled]="!d.active">
+            {{d.name}}{{d.active?'':' (inativo)'}}
+          </option>
+          }}
+        </select></label
+      ><label
+        >Observações da rota<textarea
+          formControlName="notes"
+          [readOnly]="planningLocked()"
+          placeholder="Orientações gerais para o motorista"
+        ></textarea>
+      </label>
+      <div class="section-heading">
+        <div>
+          <h3>Sequência das paradas</h3>
+          <p class="muted">
+            {{planningLocked()?'Disponível no painel do
+            motorista.':'Arraste ou use as setas para mudar a ordem.'}}
+          </p>
+        </div>
+        <span class="badge">{{stops().length}} entregas</span>
+      </div>
+      @for(id of stops();track id;let i=$index){
+      <article
+        class="stop-row"
+        [draggable]="!planningLocked()"
+        (dragstart)="dragIndex.set(i)"
+        (dragover)="$event.preventDefault()"
+        (drop)="drop(i,$event)"
+      >
+        <span class="stop-number">{{i+1}}</span>
+        <div class="record-info">
+          <strong>{{order(id)?.establishments?.name}}</strong
+          ><small>{{order(id)?.establishments?.full_address}}</small
+          ><a [routerLink]="['/admin/pedidos',id]" class="text-button"
+            >Ver pedido · {{order(id)?.order_items?.length}} produtos</a
+          >
+        </div>
+        @if(!planningLocked()){
+        <div class="stop-controls">
+          <button
+            class="icon-button"
+            type="button"
+            aria-label="Mover parada para cima"
+            [disabled]="i===0"
+            (click)="move(i,-1)"
+          >
+            <app-icon name="up" /></button
+          ><button
+            class="icon-button"
+            type="button"
+            aria-label="Mover parada para baixo"
+            [disabled]="i===stops().length-1"
+            (click)="move(i,1)"
+          >
+            <app-icon name="down" /></button
+          ><button
+            class="icon-button"
+            type="button"
+            aria-label="Remover pedido da rota"
+            (click)="remove(id)"
+          >
+            <app-icon name="close" />
+          </button>
+        </div>
+        }
+      </article>
+      }@if(!stops().length){
+      <div class="note">
+        Adicione pedidos da lista ao lado. Você também pode salvar o rascunho e
+        cadastrar um pedido diretamente na rota.
+      </div>
+      }@if(selected()?.id&&selected()?.status==='draft'){<a
+        routerLink="/admin/pedidos/novo"
+        [queryParams]="{rota:selected()?.id,data:date.value}"
+        class="button secondary"
+        [class.disabled-link]="dirty()"
+      >
+        <app-icon name="plus" />Cadastrar pedido nesta rota</a
+      >@if(dirty()){
+      <p class="muted">
+        Salve as alterações antes de abrir o cadastro de pedido.
+      </p>
+      }} @if(stops().length){
+      <details class="product-summary">
+        <summary>Resumo de produtos da rota</summary>
+        @for(item of summary();track item.name+'|'+item.unit){
+        <div class="summary-line">
+          <span>{{item.name}}</span
+          ><strong>{{item.quantity}} {{item.unit}}</strong>
+        </div>
+        }
+      </details>
+      }@if(formError()){
+      <p class="error" role="alert">{{formError()}}</p>
+      }@if(!planningLocked()){
+      <div class="actions sticky-actions">
+        <button class="button secondary" [disabled]="saving()">
+          {{saving()?'Salvando…':'Salvar rascunho'}}</button
+        ><button
+          class="button primary"
+          type="button"
+          [disabled]="saving()||!stops().length"
+          (click)="save(true)"
+        >
+          Liberar rota<app-icon name="arrow" />
+        </button>
+      </div>
+      }
+    </form>
+    }
+  </section>
+</div>
+}

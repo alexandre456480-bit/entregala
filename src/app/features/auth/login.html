@@ -1,0 +1,111 @@
+<main class="login-page">
+  <section class="login-story">
+    <a href="/login" class="brand"
+      ><img src="/brand.svg" alt="" /><span
+        >Entrega<span class="brand-accent">Lá</span><i>•</i></span
+      ></a
+    >
+    <div class="story-content">
+      <span class="eyebrow light">DO PEDIDO AO DESTINO</span>
+      <h1>
+        Uma rotina mais leve.<br />Cada entrega<br /><em>no caminho certo.</em>
+      </h1>
+      <p>
+        Organize pedidos, conecte sua equipe e leve mais tranquilidade para o
+        dia a dia da sua distribuidora.
+      </p>
+      <img
+        class="logistics-art"
+        src="/logistics.svg"
+        alt="Ilustração de uma van verde com caixas de entrega"
+      />
+    </div>
+    <div class="story-footer">
+      <span class="mini-dot"></span> Feito para quem movimenta o dia.
+    </div>
+  </section>
+  <section class="login-main">
+    <div class="login-top">GESTÃO DE ENTREGAS, COM SIMPLICIDADE.</div>
+    <div class="login-form-wrap">
+      <div class="tactile-icon"><app-icon name="lock" /></div>
+      <span class="eyebrow">BEM-VINDO AO ENTREGALÁ</span>
+      <h2>
+        {{mode() === 'login' ? 'Vamos organizar o dia?' : mode() === 'forgot' ?
+        'Esqueceu sua senha?' : 'Crie sua nova senha'}}
+      </h2>
+      <p class="muted">
+        {{mode() === 'login' ? 'Acesse sua conta para continuar.' : mode() ===
+        'forgot' ? 'Enviaremos um link seguro para o seu e-mail.' : 'Escolha uma
+        senha com pelo menos 12 caracteres.'}}
+      </p>
+      <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+        @if (mode() !== 'password') {
+        <label
+          >E-mail<input
+            formControlName="email"
+            type="email"
+            autocomplete="username"
+            placeholder="seuemail@empresa.com.br"
+            required
+        /></label>
+        } @if (mode() !== 'forgot') {
+        <label
+          >Senha
+          <div class="password-field">
+            <input
+              aria-label="Senha"
+              formControlName="password"
+              [type]="visible() ? 'text' : 'password'"
+              [autocomplete]="mode() === 'login' ? 'current-password' : 'new-password'"
+              placeholder="Sua senha de acesso"
+              required
+            /><button
+              type="button"
+              (click)="visible.set(!visible())"
+              [attr.aria-label]="visible() ? 'Ocultar senha' : 'Mostrar senha'"
+            >
+              {{visible() ? 'Ocultar' : 'Mostrar'}}
+            </button>
+          </div></label
+        >
+        } @if (mode() === 'login') {
+        <button
+          class="text-button forgot"
+          type="button"
+          (click)="switchMode('forgot')"
+        >
+          Esqueci minha senha
+        </button>
+        } @if (error()) {
+        <p class="error" role="alert">{{error()}}</p>
+        } @if (success()) {
+        <p class="success" role="status">{{success()}}</p>
+        }
+        <button class="button primary full" type="submit" [disabled]="busy()">
+          {{busy() ? 'Aguarde…' : mode() === 'login' ? 'Entrar na minha conta' :
+          mode() === 'forgot' ? 'Enviar link de recuperação' : 'Salvar nova
+          senha'}}<app-icon name="arrow" />
+        </button>
+        @if (mode() !== 'login') {
+        <button
+          class="text-button full"
+          type="button"
+          (click)="switchMode('login')"
+        >
+          Voltar para o login
+        </button>
+        }
+      </form>
+      <div class="login-help">
+        <app-icon name="users" /><span
+          >Precisa de acesso?<br /><strong
+            >Fale com o administrador da sua equipe.</strong
+          ></span
+        >
+      </div>
+    </div>
+    <footer class="login-footer">
+      EntregaLá · Mais organização. Mais tranquilidade.
+    </footer>
+  </section>
+</main>

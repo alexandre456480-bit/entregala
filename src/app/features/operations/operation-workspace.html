@@ -1,0 +1,257 @@
+<section class="operation-workspace">
+  @if(store.error()){
+  <div class="error" role="alert">
+    {{store.error()}}
+    <button
+      class="text-button"
+      [disabled]="store.busy()"
+      (click)="store.refresh(true)"
+    >
+      Atualizar dados
+    </button>
+  </div>
+  } @if(store.queued()){
+  <div class="note" role="status">{{store.syncing()?'Sincronizando alteração…':'1 alteração aguardando sincronização. Ainda não confirmada pelo servidor.'}} <button class="text-button" [disabled]="store.syncing()" (click)="store.syncQueue()">Tentar sincronizar</button> <button class="text-button" [disabled]="store.syncing()" (click)="discardPending()">Descartar alteração</button></div>
+  } @if(store.context();as c){
+  <header class="operation-header">
+    <div>
+      <span class="eyebrow"
+        >JORNADA · {{c.route_date|date:'dd/MM/yyyy':'UTC'}}</span
+      >
+      <h2>{{c.driver_name}}</h2>
+    </div>
+    <span class="badge" [class.released]="c.status==='in_progress'"
+      >{{labels[c.status]}}</span
+    >
+  </header>
+  <p class="operation-sync" role="status">
+    {{store.busy()?'Salvando…':store.stale()?'⚠ Dados podem estar
+    desatualizados':store.realtime()?'● Atualizações conectadas':'↻ Recuperação
+    automática a cada 20 segundos'}} @if(store.syncedAt()){ · Consulta
+    {{store.syncedAt()|operationTime:'time'}}}
+  </p>
+  <app-route-progress [stops]="c.stops" />
+  @if(c.status==='released'){
+  <div class="operation-start">
+    <app-load-illustration />
+    <h3>Uma boa entrega começa na carga.</h3>
+    <p>Confira as mercadorias de todos os estabelecimentos antes de sair.</p>
+    @if(driver()){<button
+      class="button primary full"
+      [disabled]="store.busy()"
+      (click)="begin()"
+    >
+      Iniciar conferência de carregamento</button
+    >}@else{
+    <p class="note">Aguardando o motorista iniciar a conferência.</p>
+    }
+  </div>
+  } @else{
+  <div class="operation-tabs" aria-label="Área operacional">
+    <button [class.active]="view()==='summary'" (click)="view.set('summary')">
+      Resumo</button
+    ><button [class.active]="view()==='loading'" (click)="view.set('loading')">
+      Carga</button
+    ><button
+      [class.active]="view()==='delivery'"
+      (click)="view.set('delivery');selected.set(next()?.id||c.stops[0]?.id||'')"
+    >
+      Entregas</button
+    ><button [class.active]="view()==='map'" (click)="view.set('map')">
+      Mapa
+    </button>
+  </div>
+  @if(view()==='summary'){ @if(next();as n){
+  <article class="operation-next">
+    <span class="eyebrow"
+      >{{c.status==='loading'?'PRÓXIMA ETAPA':'PRÓXIMA ENTREGA · PARADA
+      '+n.position}}</span
+    >
+    <h3>
+      {{c.status==='loading'?'Conferir todas as
+      mercadorias':n.establishment.name}}
+    </h3>
+    <p>{{n.establishment.full_address}}</p>
+    <p>{{n.items.length}} produtos · {{n.establishment.district}}</p>
+    @if(c.status==='loading'){<button
+      class="button primary full"
+      (click)="view.set('loading')"
+    >
+      Continuar conferência</button
+    >}@else{<button class="button primary full" (click)="show(n.id)">
+      Continuar entregas</button
+    >}
+  </article>
+  }
+  <div class="operation-timestamps">
+    <p>
+      Carregamento
+      <strong
+        >{{c.loading_started_at?(c.loading_started_at|operationTime):'Não
+        iniciado'}}</strong
+      >
+    </p>
+    <p>
+      Saída
+      <strong
+        >{{c.started_at?(c.started_at|operationTime):'Não iniciada'}}</strong
+      >
+    </p>
+    <p>
+      Encerramento
+      <strong
+        >{{c.finished_at?(c.finished_at|operationTime):'Em aberto'}}</strong
+      >
+    </p>
+  </div>
+  @if(c.status==='completed'){
+  <p class="note">
+    ✓ Jornada finalizada. Resultados preservados para consulta.
+  </p>
+  } } @if(view()==='loading'){@if(c.status==='loading'){<app-loading-checklist
+    [context]="c"
+    [initialMode]="requestedSection()==='product'?'product':'establishment'"
+    [busy]="store.busy()"
+    (command)="run($event)"
+    (edit)="editing.set({item:$event,mode:'load'})"
+  />}@else{
+  <h3>Conferência de carregamento salva</h3>
+  @for(s of c.stops;track s.id){
+  <section class="operation-customer">
+    <h4>{{s.establishment.name}}</h4>
+    @for(i of s.items;track i.id){
+    <div class="summary-line">
+      <span>{{i.adjusted_name||i.name}}</span
+      ><strong>{{i.loaded}} {{i.adjusted_unit||i.unit}}</strong>
+    </div>
+    @if(i.load_reason){<small>{{i.load_reason}}</small>}}
+  </section>
+  }}} @if(view()==='map'){<app-route-workspace
+    [routeId]="c.id"
+    [primaryColor]="driver()?'#39FF88':'#FFA51F'"
+    [focusOrder]="stop()?.order_id||next()?.order_id||''"
+    (changed)="mapChanged()"
+  />} @if(view()==='delivery'){
+  <div class="operation-stop-picker">
+    @for(s of c.stops;track s.id){<button
+      [class.selected]="selected()===s.id"
+      (click)="selected.set(s.id)"
+    >
+      <span>{{s.position}}</span><strong>{{s.establishment.name}}</strong
+      ><small>{{stopLabels[s.status]}}</small></button
+    >}
+  </div>
+  @if(stop();as s){<app-delivery-checklist
+    [stop]="s"
+    [busy]="store.busy()"
+    [editable]="c.status==='in_progress'"
+    (edit)="editing.set($event)"
+    (issue)="journeyIssue.set(false);dialog.set('issue')"
+    (additional)="dialog.set('add')"
+    (finish)="finishStop()"
+  />@if(!driver()&&terminal(s.status)&&c.status==='in_progress'){<button
+    class="button secondary full"
+    [disabled]="store.busy()"
+    (click)="dialog.set('reopen')"
+  >
+    Corrigir entrega finalizada</button
+  >}} } @if(c.status==='loading'&&driver()){<button
+    class="button primary full operation-primary-action"
+    [disabled]="store.busy()||loadStats().remaining>0||!loadStats().total"
+    (click)="start()"
+  >
+    Iniciar entregas</button
+  >} @if(c.status==='in_progress'&&driver()&&!p().remaining){<button
+    class="button primary full operation-primary-action"
+    [disabled]="store.busy()"
+    (click)="finish()"
+  >
+    Finalizar jornada</button
+  >} @if(!readonlyView()){<button
+    class="text-button"
+    [disabled]="store.busy()"
+    (click)="journeyIssue.set(true);dialog.set('issue')"
+  >
+    Registrar problema na jornada</button
+  >}
+  <details class="operation-issues">
+    <summary>Ocorrências registradas · {{c.issues.length}}</summary>
+    @for(i of c.issues;track i.id){
+    <article>
+      <strong>{{issueLabels[i.category]}}</strong>
+      <p>{{i.description}}</p>
+      <small
+        >{{i.phase==='loading'?'Carregamento':i.phase==='delivery'?'Entrega':'Jornada'}}
+        · {{i.created_at|operationTime}} ·
+        {{issueTarget(i.stop_id,i.item_id)}}</small
+      >
+    </article>
+    }
+  </details>
+  @if(!driver()){
+  <details class="operation-issues">
+    <summary>Histórico operacional</summary>
+    @for(h of c.history;track $index){
+    <article>
+      <strong>{{historyLabels[h.operation]||h.operation}}</strong
+      ><small>{{h.created_at|operationTime}}</small>
+    </article>
+    }
+  </details>
+  } }} @else if(!store.error()){
+  <div class="skeleton list-skeleton" aria-label="Carregando jornada"></div>
+  }
+</section>
+@if(editing();as e){<app-operation-item-editor
+  [item]="e.item"
+  [mode]="e.mode"
+  [busy]="store.busy()"
+  [error]="store.error()"
+  (closed)="editing.set(null)"
+  (saved)="run($event)"
+/>} @if(dialog();as d){<app-operation-dialog
+  [mode]="d"
+  [stopId]="d==='issue'&&journeyIssue()?'':stop()?.id||''"
+  [phase]="store.context()?.status==='loading'?'loading':d==='issue'&&journeyIssue()?'journey':stop()?'delivery':'journey'"
+  [busy]="store.busy()"
+  [error]="store.error()"
+  (closed)="dialog.set(null)"
+  (saved)="run($event)"
+/>} @if(finalReason()){
+<div class="modal-backdrop">
+  <section
+    class="modal operation-final-reason"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Justificativa do resultado"
+    (keydown.escape)="!store.busy()&&finalReason.set(false)"
+  >
+    <h3>Justifique o resultado da entrega</h3>
+    <label
+      >Motivo<textarea
+        maxlength="1000"
+        [value]="reason()"
+        (input)="reason.set($any($event.target).value)"
+        rows="3"
+      ></textarea></label
+    >@if(store.error()){
+    <p class="error" role="alert">{{store.error()}}</p>
+    }
+    <div class="actions">
+      <button
+        class="button secondary"
+        [disabled]="store.busy()"
+        (click)="finalReason.set(false)"
+      >
+        Voltar</button
+      ><button
+        class="button primary"
+        [disabled]="store.busy()||reason().trim().length<3"
+        (click)="confirmDifference()"
+      >
+        Confirmar resultado e avançar
+      </button>
+    </div>
+  </section>
+</div>
+}
